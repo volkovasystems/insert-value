@@ -4,6 +4,7 @@
 
 		Copyright (c) 2014 Jann Paolo Caña
 		Copyright (c) 2014 Richeve Siodina Bebedor
+		Copyright (c) 2014 Regynald Reiner Ventura
 
 		Permission is hereby granted, free of charge, to any person obtaining a copy
 		of this software and associated documentation files (the "Software"), to deal
@@ -48,22 +49,28 @@
 	@end-module-configuration
 
 	@module-documentation:
+		Insert the value using the specified condition with the following format:
 
+			schema@key=value
+
+			??model@key=value
+	
+		If no schema is specified then we will assume that the collectionName == schema.
 	@end-module-documentation
 
 	@include:
-		{			
-			"util@nodejs": "util",
-			"mongodb@npm": "mongodb"
+		{
+			"mongoose@npm": "mongoose",
+			"resolve-query-condition@github.com/volkovasystems": "resolveQueryCondition"
 		}
 	@end-include
 */
 
-var insertValue = function insertValue( value, collectionName, databaseName, databaseHost, databasePort, callback ){
+var insertValue = function insertValue( condition, collectionName, databaseName, databaseHost, databasePort, callback ){
 	/*:
 		@meta-configuration:
 			{
-				"value:required": "string",
+				"condition:required": "string|object",
 				"collectionName:required": "string",
 				"databaseName:required": "string",
 				"databaseHost:required": "string",
@@ -72,6 +79,12 @@ var insertValue = function insertValue( value, collectionName, databaseName, dat
 			}
 		@end-meta-configuration
 	*/
+
+	var queryCondition = resolveQueryCondition( condition );
+	var dataModel = queryCondition.reference;
+	var queryObject = queryCondition.queryObject;
+	
+	var modelNames = mongoose.modelNames( );
 
 	//NOOP override.
 	callback = callback || function( ){ };
@@ -83,42 +96,33 @@ var insertValue = function insertValue( value, collectionName, databaseName, dat
 		databaseName 
 	].join( "" );
 
-	var connection = database.connect( mongoDatabaseURL );
-
+	var connection = mongoose.createConnection( mongoDatabaseURL );
 
 	connection.on( "connected",
-		function onConnect( ){
-			try{
-				value = JSON.parse( value );
-			}catch( error ){
-				isCorrectFormat = false;
-			}
+		function onConnected( ){
+			//Check if we have the model in the list of models.
+			if( modelNames.indexOf( dataModel ) != -1 ){
+				var theModel = connection.model( dataModel );
+				
+				var data = new theModel( queryObject );
 
-			if( !isCorrectFormat ){
-				var msg = "\n\n  command arg1 arg2 arg3"
-				+ "\n\targ1 ----- query ex. {\"field\":\"value\"}"
-				+"\n\targ2 ----- collection name"
-				+"\n\targ3 ----- database name";
-				isCorrectFormat = true; // set to default value for checking again
-			}else{
-				database.collection( collectionName,
-					function onInsert( error, collection ){
-						collection.insert( value,
-							function onSave( error, records ){
-								database.close( );
-								if( error ){
-									console.error ( error );
+				data.save(
+					function onSave( error ){
+						mongoose.disconnect( );
 
-									callback ( error );
+						if( error ){
+							console.error( error );
+							callback ( error );
 
-								}else{
-									var encodedValue = new Buffer( util.inspect( records, { "depth": null } ) ).toString( "base64" );
-									console.log( encodedValue );
-									
-									callback( null, records );
-								}
-							} );
+						}else{
+							console.log( true );
+							callback( null, true );
+						}
 					} );
+			}else{
+				var error = new Error( "invalid model" );
+				console.error( error );
+				callback( error );
 			}
 		} );
 
@@ -130,8 +134,10 @@ var insertValue = function insertValue( value, collectionName, databaseName, dat
 		} );
 };
 
-var mongodb = require( "mongodb" );
-var database = mongodb.Db;
-var isCorrectFormat = true;
+var mongoose = require( "mongoose" );
+var models_schemas = require( "./models.js" );
+var resolveQueryCondition = require( "../resolve-query-condition/resolve-query-condition.js" );
 
 exports.insertValue = insertValue;
+
+insertValue( "myModel2@firstname=rein3", "newCollection", "newDatabase", "127.0.0.1", "27017");
