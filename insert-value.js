@@ -49,13 +49,10 @@
 	@end-module-configuration
 
 	@module-documentation:
-		Insert the value using the specified condition with the following format:
+		Inserts keyValue using the specified condition with the following format:
 
-			schema@key=value
+			{"key":"value"}
 
-			??model@key=value
-	
-		If no schema is specified then we will assume that the collectionName == schema.
 	@end-module-documentation
 
 	@include:
@@ -66,11 +63,11 @@
 	@end-include
 */
 
-var insertValue = function insertValue( condition, collectionName, databaseName, databaseHost, databasePort, callback ){
+var insertValue = function insertValue( keyValue, collectionName, databaseName, databaseHost, databasePort, callback ){
 	/*:
 		@meta-configuration:
 			{
-				"condition:required": "string|object",
+				"keyValue:required": "string|Object",
 				"collectionName:required": "string",
 				"databaseName:required": "string",
 				"databaseHost:required": "string",
@@ -79,12 +76,6 @@ var insertValue = function insertValue( condition, collectionName, databaseName,
 			}
 		@end-meta-configuration
 	*/
-
-	var queryCondition = resolveQueryCondition( condition );
-	var dataModel = queryCondition.reference;
-	var queryObject = queryCondition.queryObject;
-	
-	var modelNames = mongoose.modelNames( );
 
 	//NOOP override.
 	callback = callback || function( ){ };
@@ -100,44 +91,35 @@ var insertValue = function insertValue( condition, collectionName, databaseName,
 
 	connection.on( "connected",
 		function onConnected( ){
-			//Check if we have the model in the list of models.
-			if( modelNames.indexOf( dataModel ) != -1 ){
-				var theModel = connection.model( dataModel );
-				
-				var data = new theModel( queryObject );
+			var schema = new Schema( { }, { strict: false } );
+			var model = connection.model( collectionName, schema );
 
-				data.save(
-					function onSave( error ){
-						mongoose.disconnect( );
+			var data = new model( JSON.parse( keyValue ) );
 
-						if( error ){
-							console.error( error );
-							callback ( error );
+			data.save( function onSave( error ){
+				mongoose.disconnect( );
 
-						}else{
-							console.log( true );
-							callback( null, true );
-						}
-					} );
-			}else{
-				var error = new Error( "invalid model" );
-				console.error( error );
-				callback( error );
-			}
+				if( error ){
+					console.error( error );
+					callback ( error );
+
+				}else{
+					console.log( true );
+					callback( null, true );
+				}
+			} );
 		} );
-
 	connection.on( "error",
 		function onError( error ){
 			console.error( error );
-
 			callback( error );
 		} );
 };
 
 var mongoose = require( "mongoose" );
-var models_schemas = require( "./models.js" );
+var Schema = mongoose.Schema;
 var resolveQueryCondition = require( "../resolve-query-condition/resolve-query-condition.js" );
 
 exports.insertValue = insertValue;
 
-insertValue( "myModel2@firstname=rein3", "newCollection", "newDatabase", "127.0.0.1", "27017");
+insertValue( "{\"abc10\":\"123210\"}", "newCollection", "newDatabase", "127.0.0.1", "27017");
