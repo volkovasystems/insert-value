@@ -93,7 +93,6 @@ var insertValue = function insertValue( keyValue, collectionName, databaseName, 
 		function onConnected( ){
 			var schema = new Schema( { }, { strict: false } );
 			var model = connection.model( collectionName, schema );
-
 			var data = new model( JSON.parse( keyValue ) );
 
 			data.save( function onSave( error ){
@@ -109,6 +108,7 @@ var insertValue = function insertValue( keyValue, collectionName, databaseName, 
 				}
 			} );
 		} );
+
 	connection.on( "error",
 		function onError( error ){
 			console.error( error );
@@ -118,7 +118,8 @@ var insertValue = function insertValue( keyValue, collectionName, databaseName, 
 
 var mongoose = require( "mongoose" );
 var Schema = mongoose.Schema;
-var resolveQueryCondition = require( "../resolve-query-condition/resolve-query-condition.js" );
+
+module.exports = insertValue;( "./resolve-query-condition/resolve-query-condition.js" );
 
 exports.insertValue = insertValue;
 
